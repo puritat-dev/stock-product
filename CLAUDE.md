@@ -17,49 +17,62 @@ npm start        # Start production server
 npm run lint     # Run ESLint
 ```
 
-For iOS mobile testing via Expo, see `stock-app/` directory (separate Expo + WebView project).
-
 ## Architecture
 
 ### Dual Database Mode (Supabase + LocalStorage Fallback)
 
 The application automatically falls back to a LocalStorage-based mock database when Supabase credentials are not configured. This is defined in `src/lib/supabase.js`:
 
-- **Real Supabase mode**: Activated when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set to non-placeholder values
+- **Real Supabase mode**: Activated when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set to non-placeholder values (not `your-supabase-url` or `your-supabase-anon-key`)
 - **Mock mode**: Uses LocalStorage with seeded mock data when env vars are missing
 
 The unified export interface:
 ```javascript
-import { db, auth, isMocked, client } from '@/lib/supabase';
+import { db, auth, isMocked, client, userAuth } from '@/lib/supabase';
 ```
 
 **Available db methods:**
 - `db.getProducts()`, `db.createProduct()`, `db.updateProduct()`, `db.deleteProduct()`
 - `db.getTransactions()`, `db.createTransaction()`
-- `auth.getSession()`, `auth.signInWithPassword()`, `auth.signOut()`
+- `db.getSettings()`, `db.getSetting(key)`, `db.updateSetting(key, value)`
+- `db.uploadImage(file, path)`, `db.deleteImage(url)` — Supabase Storage only
+- `db.getUsers()`, `db.createUser()`, `db.updateUser()`, `db.deleteUser()`
 
-### Database Schema (Simplified)
+**Auth methods (via `userAuth`):**
+- `userAuth.getSession()`, `userAuth.login(username, password)`, `userAuth.logout()`
 
-See `schema.sql` for the complete Supabase schema. **Warehouses were removed** - stock quantities are now tracked directly in the products table:
+### Database Schema
+
+See `schema.sql` for the complete Supabase schema. **Warehouses were removed** — stock quantities are now tracked directly in the products table:
 
 1. **app_users** — User authentication (id, username, password, name, role)
 2. **products** — Product catalog with embedded stock tracking (id, sku, name, description, category, cost_price, selling_price, barcode, image_url, **quantity**, **safety_stock**)
-3. **stock_transactions** — Transaction ledger (id, product_id, transaction_type IN/OUT/ADJUST, quantity, notes, created_at)
+3. **stock_transactions** — Transaction ledger (id, product_id, transaction_type IN/OUT/ADJUST, quantity, direction, notes, created_at)
+4. **app_settings** — KPI targets and system settings (key, value, description, updated_at)
 
-**Important**: A PostgreSQL trigger `process_stock_transaction()` automatically updates `products.quantity` when transactions are inserted. This trigger handles:
-- IN: Adds quantity
-- OUT: Subtracts quantity  
-- ADJUST: Adds quantity (for corrections)
+**Important**: A PostgreSQL trigger `process_stock_transaction()` automatically updates `products.quantity` when transactions are inserted:
+- `IN`: Adds quantity
+- `OUT`: Subtracts quantity
+- `ADJUST`: Adds or subtracts based on `direction` field (`'in'` or `'out'`)
+
+### Critical: Transaction Direction Values
+
+**The `direction` field in `stock_transactions` must be lowercase `'in'` or `'out'`** — the database has a check constraint `direction IN ('in', 'out')`.
+
+When creating ADJUST transactions in code (e.g., `src/app/products/page.js`):
+- Initial state: `useState('in')` (not `'increase'`)
+- Modal reset: `setTxAdjustDirection('in')`
+- Select options: `<option value="in">` and `<option value="out">`
 
 ### App Structure
 
 - `src/app/` — Next.js App Router pages
   - `page.js` — Dashboard (stats cards, profit chart, low stock alerts, recent transactions)
-  - `products/page.js` — Product CRUD with table layout
+  - `products/page.js` — Product CRUD with table layout, stock transaction modal
   - `transactions/page.js` — Transaction history with filters (search, type, date range)
   - `reports/page.js` — Reports with tabbed navigation (sales, products, category, stock valuation)
   - `login/page.js` — Authentication page
-- `src/components/Navbar.js` — Navigation with auth check, theme toggle, mobile menu, and mock mode badge
+- `src/components/Navbar.js` — Navigation with auth check, theme toggle, mobile menu, mock mode badge
 - `src/components/Skeleton.js` — Loading skeleton components for all pages
 - `src/lib/supabase.js` — Unified database client (Supabase or mock fallback)
 
@@ -88,7 +101,7 @@ See individual page CSS files for `.desktopOnly` class that hides columns on mob
 
 ### Client-Side Auth
 
-Navbar (`src/components/Navbar.js`) performs session checks and redirects unauthenticated users to `/login`. In mock mode, login uses LocalStorage (`demo_logged_in` key). Mobile menu automatically closes on pathname changes.
+Navbar (`src/components/Navbar.js`) performs session checks and redirects unauthenticated users to `/login`. In mock mode, login uses LocalStorage (`app_session` key). Mobile menu automatically closes on pathname changes.
 
 ### Reports Page Architecture (`src/app/reports/page.js`)
 
@@ -117,26 +130,11 @@ The reports page uses tab-based navigation with conditional rendering:
 
 - **Language**: The UI uses Thai language text throughout (e.g., "ภาพรวมระบบสต๊อกสินค้า", "กำลังประมวลผล...")
 - **Next.js 16** has breaking changes from earlier versions
-- **No warehouses** - stock tracking simplified to per-product quantities
+- **No warehouses** — stock tracking simplified to per-product quantities
 - **Currency**: Thai Baht (THB) via `Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' })`
-- **Viewport**: Zoom disabled on mobile via layout.js viewport config
+- **Viewport**: Zoom disabled on mobile via layout.js viewport config (`maximumScale: 1, userScalable: false`)
 - **Mock mode badge**: Shows "Local Mock" in navbar when using LocalStorage fallback; login page shows "Mock Mode" alert only in mock mode
 - **Reports chart heights**: Sales chart 260px, Category PieChart 220px (smaller than dashboard for space efficiency)
-
-## Seed Data
-
-For testing with large datasets:
-- `seed-data.sql` — Basic seed data
-- `seed-data-large.sql` — Large dataset spanning multiple days for testing pagination and reports
-
-## Future Plans
-
-See `phase_2.md` for multi-tenant architecture plans (user isolation via RLS).
-
-## Assets
-
-- Favicon: `src/app/icon.png`, `src/app/apple-icon.png` — Next.js 13+ automatically detects these
-- Promotional prompts: `prompts/PROMPT_VIDEO_PRESENTATION.md` — AI prompts for marketing materials
 
 ## Chart Configuration
 
@@ -158,13 +156,13 @@ Do not use CSS variables like `var(--color-success)` for chart colors as they ma
 
 Each page has a corresponding skeleton component:
 - `DashboardSkeleton()` — Dashboard page
-- `ProductsSkeleton()` — Products page  
+- `ProductsSkeleton()` — Products page
 - `TransactionsSkeleton()` — Transactions page
 - `ReportsSkeleton()` — Reports page
 - `CardSkeleton()` — Generic reusable card skeleton
 - `TableRowSkeleton()` — Generic table row skeleton
 
-Always wrap tab- consuming components in `<Suspense>` when using `useSearchParams()` or similar hooks.
+Always wrap tab-consuming components in `<Suspense>` when using `useSearchParams()` or similar hooks.
 
 ### Pagination Pattern
 
@@ -173,3 +171,18 @@ Consistent pagination across products, transactions, and reports:
 - Mobile (<768px): 10 items per page
 - Page numbers with ellipsis for navigation
 - "แสดง X - Y จาก Z รายการ" info display
+
+## Future Plans
+
+See `phase_2.md` for multi-tenant architecture plans (user isolation via RLS with `user_id` columns).
+
+## Seed Data
+
+For testing with large datasets:
+- `seed-data.sql` — Basic seed data
+- `seed-data-large.sql` — Large dataset spanning multiple days for testing pagination and reports
+
+## Image Upload
+
+- **Supabase mode**: Uses Supabase Storage bucket named `attachments`
+- **Mock mode**: Converts images to base64 data URLs for local storage

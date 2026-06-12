@@ -1,5 +1,6 @@
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
   title: "STOCKPRODUCT - Stock Product Management",
@@ -21,6 +22,7 @@ export default function RootLayout({ children }) {
         <main className="flex-1 flex flex-col" style={{ paddingTop: '68px' }}>
           {children}
         </main>
+        <Analytics />
       </body>
     </html>
   );
