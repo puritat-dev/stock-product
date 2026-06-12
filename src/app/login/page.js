@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, isMocked } from '@/lib/supabase';
-import { KeyRound, Mail, AlertCircle, Database, ShieldAlert } from 'lucide-react';
+import { userAuth, isMocked } from '@/lib/supabase';
+import { KeyRound, User, AlertCircle, Database } from 'lucide-react';
 import styles from './page.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -17,8 +17,8 @@ export default function LoginPage() {
     // Check if already logged in
     const checkUser = async () => {
       try {
-        const { data } = await auth.getSession();
-        if (data?.session) {
+        const session = await userAuth.getSession();
+        if (session) {
           router.push('/');
         }
       } catch (err) {
@@ -34,14 +34,14 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data, error } = await auth.signInWithPassword({ email, password });
-      if (error) {
-        setError(error.message);
-      } else {
+      const result = await userAuth.login(username, password);
+      if (result.success) {
         router.push('/');
+      } else {
+        setError(result.error);
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setError('เกิดข้อผิดพลาด กรุณาลองใหม่');
       console.error(err);
     } finally {
       setLoading(false);
@@ -57,20 +57,12 @@ export default function LoginPage() {
           <p className={styles.subtitle}>ระบบจัดการสินค้าและคลังสินค้าอัจฉริยะ</p>
         </div>
 
-        {isMocked ? (
+        {isMocked && (
           <div className={styles.mockAlert}>
             <Database size={16} className={styles.alertIcon} />
             <div className={styles.alertText}>
               <strong>โหมดฐานข้อมูลทดลอง (Mock Mode)</strong>
-              <p>ระบบรันบน LocalStorage ของบราวเซอร์เพื่อความสะดวกในการทดสอบ สามารถใส่ Email และ Password ใดก็ได้เพื่อเข้าใช้งาน</p>
-            </div>
-          </div>
-        ) : (
-          <div className={styles.liveAlert}>
-            <ShieldAlert size={16} className={styles.liveIcon} />
-            <div className={styles.alertText}>
-              <strong>โหมดใช้งานจริง (Supabase Connected)</strong>
-              <p>เชื่อมต่อระบบฐานข้อมูลคลาวด์แล้ว กรุณาเข้าใช้งานด้วยบัญชีผู้ใช้จริงของคุณ</p>
+              <p>ระบบรันบน LocalStorage ของบราวเซอร์ เข้าใช้งานด้วย: <strong>admin / 123456</strong></p>
             </div>
           </div>
         )}
@@ -84,17 +76,18 @@ export default function LoginPage() {
           )}
 
           <div className={styles.inputGroup}>
-            <label htmlFor="email" className={styles.label}>อีเมล (Email)</label>
+            <label htmlFor="username" className={styles.label}>ชื่อผู้ใช้ (Username)</label>
             <div className={styles.inputWrapper}>
-              <Mail size={18} className={styles.fieldIcon} />
+              <User size={18} className={styles.fieldIcon} />
               <input
-                id="email"
-                type="email"
-                placeholder="email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="เช่น testuser"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className={styles.input}
+                autoComplete="username"
               />
             </div>
           </div>
@@ -111,6 +104,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className={styles.input}
+                autoComplete="current-password"
               />
             </div>
           </div>

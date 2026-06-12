@@ -98,6 +98,16 @@ body {
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
+/* Prevent horizontal overflow on all elements */
+* {
+  max-width: 100%;
+}
+
+img, table, pre, code {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
