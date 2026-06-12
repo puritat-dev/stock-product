@@ -33,7 +33,7 @@ export default function ProductsPage() {
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [txProductId, setTxProductId] = useState('');
   const [txTransactionType, setTxTransactionType] = useState('IN');
-  const [txAdjustDirection, setTxAdjustDirection] = useState('increase');
+  const [txAdjustDirection, setTxAdjustDirection] = useState('in');
   const [txQuantity, setTxQuantity] = useState('');
   const [txNotes, setTxNotes] = useState('');
   const [txModalError, setTxModalError] = useState(null);
@@ -244,7 +244,7 @@ export default function ProductsPage() {
   const openTxModal = (productId = null) => {
     setTxProductId(productId || products[0]?.id || '');
     setTxTransactionType('IN');
-    setTxAdjustDirection('increase');
+    setTxAdjustDirection('in');
     setTxQuantity('');
     setTxNotes('');
     setTxModalError(null);

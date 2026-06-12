@@ -120,8 +120,23 @@ The reports page uses tab-based navigation with conditional rendering:
 - **No warehouses** - stock tracking simplified to per-product quantities
 - **Currency**: Thai Baht (THB) via `Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' })`
 - **Viewport**: Zoom disabled on mobile via layout.js viewport config
-- **Mock mode badge**: Shows "Local Mock" in navbar when using LocalStorage fallback
+- **Mock mode badge**: Shows "Local Mock" in navbar when using LocalStorage fallback; login page shows "Mock Mode" alert only in mock mode
 - **Reports chart heights**: Sales chart 260px, Category PieChart 220px (smaller than dashboard for space efficiency)
+
+## Seed Data
+
+For testing with large datasets:
+- `seed-data.sql` — Basic seed data
+- `seed-data-large.sql` — Large dataset spanning multiple days for testing pagination and reports
+
+## Future Plans
+
+See `phase_2.md` for multi-tenant architecture plans (user isolation via RLS).
+
+## Assets
+
+- Favicon: `src/app/icon.png`, `src/app/apple-icon.png` — Next.js 13+ automatically detects these
+- Promotional prompts: `prompts/PROMPT_VIDEO_PRESENTATION.md` — AI prompts for marketing materials
 
 ## Chart Configuration
 
